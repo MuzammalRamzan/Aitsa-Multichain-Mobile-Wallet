@@ -1,0 +1,5 @@
+[Warn  - 02:45:00] Infura project ID and/or secret has not been set. Obtain them from https://infura.io/ and set them in the VS Code settings by searching for "Infura".
+[Warn  - 02:45:00] Amberdata.io API key has not been set. Obtain one from https://amberdata.io/ and set the in them VS Code settings by searching for "Amberdata".
+[Warn  - 02:45:00] Etherscan.io API key has not been set. Obtain one from https://etherscan.io/ and set the in them VS Code settings by searching for "Etherscan".
+[Info  - 02:45:00] Using Token List from https://gateway.ipfs.io/ipns/tokens.uniswap.org
+[Error - 02:45:00] No web3 connection has been configured.  Configure Infura and/or Amberdata keys in VS Code settings for Ethereum DeFi.

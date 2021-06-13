@@ -1,0 +1,31 @@
+Looking for git in: /usr/bin/git
+Using git 2.30.1 (Apple Git-130) from /usr/bin/git
+> git rev-parse --git-dir
+Open repository: /Users/macbookpro/Desktop/My Mac/Data/Aitca project backup
+> git status -z -u
+> git symbolic-ref --short HEAD
+> git for-each-ref --format=%(refname)%00%(upstream:short)%00%(upstream:track)%00%(objectname) refs/heads/main refs/remotes/main
+> git for-each-ref --sort -committerdate --format %(refname) %(objectname) %(*objectname)
+> git remote --verbose
+> git config --get commit.template
+> git check-ignore -v -z --stdin
+> git status -z -u
+> git symbolic-ref --short HEAD
+> git for-each-ref --format=%(refname)%00%(upstream:short)%00%(upstream:track)%00%(objectname) refs/heads/main refs/remotes/main
+> git for-each-ref --sort -committerdate --format %(refname) %(objectname) %(*objectname)
+> git remote --verbose
+> git config --get commit.template
+> git check-ignore -v -z --stdin
+> git check-ignore -v -z --stdin
+> git status -z -u
+> git symbolic-ref --short HEAD
+> git for-each-ref --format=%(refname)%00%(upstream:short)%00%(upstream:track)%00%(objectname) refs/heads/main refs/remotes/main
+> git for-each-ref --sort -committerdate --format %(refname) %(objectname) %(*objectname)
+> git remote --verbose
+> git config --get commit.template
+> git show --textconv :src/bigchaindb/api.js
+> git ls-files --stage -- /Users/macbookpro/Desktop/My Mac/Data/Aitca project backup/src/bigchaindb/api.js
+> git cat-file -s 7999e9ec393f1a3fc2a7ac8a2ecca1fb8fd5865b
+> git ls-files --stage -- /Users/macbookpro/Desktop/My Mac/Data/Aitca project backup/src/bigchaindb/api.js
+> git cat-file -s 7999e9ec393f1a3fc2a7ac8a2ecca1fb8fd5865b
+> git show --textconv :src/bigchaindb/api.js
