@@ -1,0 +1,446 @@
+var express = require('express');
+var router = express.Router();
+var bodyParser = require('body-parser');
+var VerifyToken = require('../auth/VerifyToken');
+const bigchain = require('../src/bigchaindb/api')
+const User = require('../user/User')
+const config = require('../config')
+const launch = require('../bai/launchbai');
+const request = require('request');
+var multiAsset = require('./multiModel');
+var mongoose = require('mongoose');
+var db = mongoose.connection;
+const multichain = require('../src/multichain/multichain')
+const AssetController = require('../user/AssetController');
+router.use(bodyParser.urlencoded({ extended: false }));
+router.use(bodyParser.json());
+router.post('/create', VerifyToken, async function (req, res, next) {
+    const payload = req.body.payload;
+    // const detail=req.body.detail;
+    const userId = req.userId;
+    const metadata = payload;
+    if (!payload || payload === "" || payload === undefined ||
+        !userId || userId === "" || userId === undefined ||
+        !payload.hasOwnProperty('name') ||
+        !payload.hasOwnProperty('quantity') ||
+        !payload.hasOwnProperty('type') ||
+        !payload.hasOwnProperty('price') ||
+        !payload.hasOwnProperty('unit')
+    ) {
+        res.send({ success: false, error: "Please fill required parameters" })
+        return;
+    }
+    // if(typeof  detail['type'] != 'string' || detail['type'].trim() =="")
+    // return res.send({success:false,message:"type must be a valid string"})
+    // if(typeof  detail['price'] != 'number'||detail['price']==0)
+    // return res.send({success:false,message:"price must be a valid number"})
+    if (typeof payload['name'] != 'string' || payload['name'].trim() == "")
+        return res.send({ success: false, message: "name must be a valid string" })
+    if (typeof payload['type'] != 'string' || payload['type'].trim() == "")
+        return res.send({ success: false, message: "type must be a valid string" })
+    if (typeof payload['price'] != 'number' || payload['price'] == 0)
+        return res.send({ success: false, message: "price must be a valid number" })
+    if (typeof payload['unit'] != 'string' || payload['unit'].trim() == "")
+        return res.send({ success: false, message: "unit must be a valid string" })
+    if (typeof payload['quantity'] != 'number' || payload['quantity'] == 0)
+        return res.send({ success: false, message: "amount must be a valid Integer" })
+    let nameLength = payload.name.trim().length;
+    if (nameLength < 1)
+        return res.send({ success: false, message: "Please enter a valid asset name" })
+
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+
+                let multiAddress = user.multiAddress;
+                var quantity = payload.quantity;
+                var name = payload.name;
+                var unit = payload.unit;
+                var price = payload.price;
+                var type = payload.type;
+                console.log("multiAddress:" + multiAddress,
+                    "quantity:" + quantity,
+                    "name:" + name)
+
+                var asset = await multichain.createAsset(multiAddress, name, quantity, unit, price, type)
+                if (asset) {
+                    res.send(asset)
+                }
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+router.get('/assets', VerifyToken, async function (req, res, next) {
+    const userId = req.userId;
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+
+
+                var address = user.multiAddress;
+                var asset = await multichain.getAssets(address)
+                if (asset) {
+                    res.send(asset)
+                }
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+////////////////////////////////////////
+router.get('/bitcoin/address', VerifyToken, async (req, res, next) => { // Get public address of Bitcoin of User
+    const userId = req.userId;
+    if (!userId || userId === "", userId === undefined) {
+        res.send({ success: false, message: "Missing userId parameter" })
+    } else {
+        User.findOne({ _id: userId }, async (err, user) => {
+            if (err) {
+                res.send({ success: false, message: "Incorrect wallet id" })
+                return;
+            } else {
+                if (user) {
+                    const pubKey = user.wallets.btc.publicKey
+                    res.send({ success: true, msg: pubKey })
+                } else {
+                    res.send({ success: false, message: "Incorrect Token" })
+                }
+
+            }
+        })
+    }
+})
+router.get('/bai/address', VerifyToken, async (req, res, next) => { // Get public BAI address   of User
+    const userId = req.userId;
+    if (!userId || userId === "", userId === undefined) {
+        res.send({ success: false, message: "Missing userId parameter" })
+    } else {
+        User.findOne({ _id: userId }, async (err, user) => {
+            if (err) {
+                res.send({ success: false, message: "Incorrect wallet id" })
+                return;
+            } else {
+                if (user) {
+                    const pubKey = user.wallets.bigchain.publicKey
+                    res.send({ success: true, msg: pubKey })
+                } else {
+                    res.send({ success: false, message: "Incorrect Token" })
+                }
+
+            }
+        })
+    }
+})
+
+router.get('/token/address', async (req, res, next) => { // Get Any Token public address   of User
+    const userId = req.body.walletId;
+    const token = req.body.token;
+    if (!userId || userId === "", userId === undefined) {
+        res.send({ success: false, message: "Missing userId parameter" })
+    }
+    if (token == 'btc' || token == 'bai') {
+        var tokenType;
+
+        // console.log("Invalid token")
+        User.findOne({ walletId: userId }, async (err, user) => {
+            if (err) {
+                res.send({ success: false, message: "Incorrect wallet id" })
+                return;
+            } else {
+                if (user) {
+                    var pubKey; //= user.wallets.bigchain.publicKey
+                    if (token == 'btc') {
+                        pubKey = user.wallets.btc.publicKey
+                    } else
+                        pubKey = user.wallets.bigchain.publicKey
+                    res.send({ success: true, msg: pubKey })
+                } else {
+                    res.send({ success: false, message: "Incorrect Token" })
+                }
+
+            }
+        })
+    } else {
+        res.send({ success: false, message: "Incorrect token" })
+    }
+})
+router.post('/transfer', VerifyToken, async function (req, res, next) {
+    const toAddress = req.body.toAddress;
+    const payload = req.body.payload;
+    const userId = req.userId;
+    const metadata = payload;
+    if (!payload || payload === "" || payload === undefined ||
+        !userId || userId === "" || userId === undefined ||
+        !payload.hasOwnProperty('name') ||
+        !payload.hasOwnProperty('quantity')
+    ) {
+        res.send({ success: false, error: "Please fill required parameters" })
+        return;
+    }
+    if (typeof payload['name'] != 'string' || payload['name'].trim() == "")
+        return res.send({ success: false, message: "name must be a valid string" })
+    if (typeof payload['quantity'] != 'number' || payload['quantity'] == 0)
+        return res.send({ success: false, message: "amount must be a valid Integer" })
+    let nameLength = payload.name.trim().length;
+    if (nameLength < 1)
+        return res.send({ success: false, message: "Please enter a valid asset name" })
+
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+                let multiAddress = user.multiAddress;
+                var quantity = payload.quantity;
+                var name = payload.name;
+                console.log("multiAddress:" + multiAddress,
+                    "quantity:" + quantity,
+                    "name:" + name)
+
+                var asset = await multichain.transferAsset(multiAddress, toAddress, name, quantity)
+                if (asset) {
+                    res.send(asset)
+                }
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+/////////////////////////////////////////////////////
+router.post('/bai/launch', VerifyToken, async function (req, res, next) {
+    const quantity = req.body.quantity;
+    const userId = req.userId;
+    if (!userId || userId === "" || userId === undefined ||
+        !quantity || quantity === "" || quantity === undefined
+    ) {
+        res.send({ success: false, error: "Please fill required parameters" })
+        return;
+    }
+    if (typeof quantity != 'number' || quantity == 0)
+        return res.send({ success: false, message: "amount must be a valid Integer" })
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+                let multiAddress = user.multiAddress;
+                var asset = await multichain.launchToken(multiAddress, quantity)
+                if (asset) {
+                    res.send(asset)
+                }
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+////////////////////////////
+router.post('/bai/asset/burn', VerifyToken, async (req, res) => { // Burn Asset not working
+    const assets = await bigchain.getBalance('BajxkAFigKPdyZVLXyyNk3XQGg8n7iHTACjNSY3se65B')
+        .catch((e) => {
+            res.send({ success: false, message: "Incorrect public key" })
+            return;
+        })
+    res.send({ success: true, assets })
+
+})
+//////////////////////////////
+router.post('/bai/transfer', VerifyToken, async function (req, res, next) {
+    const toAddress = req.body.toAddress;
+    const quantity = req.body.quantity;
+    const userId = req.userId;
+    if (!userId || userId === "" || userId === undefined ||
+        !quantity || quantity === "" || quantity === undefined ||
+        !toAddress || toAddress === "" || toAddress === undefined
+    ) {
+        res.send({ success: false, error: "Please fill required parameters" })
+        return;
+    }
+    if (typeof quantity != 'number' || quantity == 0)
+        return res.send({ success: false, message: "amount must be a valid Integer" })
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+                let multiAddress = user.multiAddress;
+                var asset = await multichain.transferToken(multiAddress, toAddress, quantity)
+                if (asset) {
+                    res.send(asset)
+                }
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+//////////////////////////////
+router.post('/get/pk', async (req, res) => { // Get Decoded value
+    var enc_data = req.body.enc_data;
+    console.log("enc_data " + enc_data)
+    let privateKey = await config.encodeDecode(enc_data, 'd')
+    res.send({ pk: privateKey });
+
+})
+router.get('/bai/trxId', async (req, res) => {
+    var trxid = req.body.trxid;
+    var detail = await bigchain.getTransaction(trxid);
+    res.send({ success: true, msg: detail })
+})
+router.post('/transfer/baiToken', async (req, res) => {
+    var response = await bigchain.transferBai();
+    if (response) {
+        res.send({ success: true, msg: res })
+    } else
+        res.send({ success: false, msg: response })
+})
+
+router.get('/asset/types', VerifyToken, async (req, res) => {
+    await AssetController.getAllAssetType(function (response) {
+        res.send(response)
+    });
+
+})
+router.get('/get/tokens', VerifyToken, async function (req, res, next) {
+    const userId = req.userId;
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+
+
+                var address = user.multiAddress;
+                var asset = await multichain.getTokens(address)
+                if (asset) {
+                    res.send(asset)
+                }
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+router.get('/get/details', VerifyToken, async function (req, res, next) {
+    const name = req.body.name;
+    if (!name || name === "" || name === undefined) {
+        res.send({ success: false, error: "Please fill required parameters" })
+        return;
+    }
+    if (typeof name != 'string' || name.trim() == "")
+        return res.send({ success: false, message: "name must be a valid string" })
+    const userId = req.userId;
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+
+
+                var asset = await multichain.getDetail(name)
+                if (asset) {
+                    res.send(asset)
+                }
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+router.post('/put/type', VerifyToken, async function (req, res, next) {
+    const name = req.body.name;
+    if (!name || name === "" || name === undefined){
+     res.send({success:false,message:"Please enter valid Asset type name"})
+    }
+    if (typeof name!= 'string' || name.trim() == "")
+        return res.send({ success: false, message: "Asset type must be a valid string" })
+    const asset = [];
+    const multiAssetTypes = new multiAsset({
+        Name: name
+    })
+    db.collection("multiAsset").find().toArray((err, result) => {
+        for (i = 0; i < result.length; i++) {
+            console.log(result[i].Name);
+
+            asset.push(result[i].Name)
+        }
+        
+        if (asset.indexOf(name) >= 0) {
+            console.log("index:" + asset.indexOf(name));
+
+            res.send({ success: true, message: "You have successfully creat Asset type"})
+        }
+        else {
+            db.collection("multiAsset").insert(multiAssetTypes, (err, UpdatedOn) => {
+                if (err) {
+                    console.log("Data is not inserting in db")
+                    console.log(err);
+
+                } else if (UpdatedOn) {
+                }
+                res.send({ success: true, message: "You have successfully creat Asset type"});
+
+            })
+        }
+    });
+});
+router.get('/get/assetType', async function (req, res, next) {
+    db.collection("multiAsset").find().toArray((err, result) => {
+        if (err) {
+            res.send({ success: false, message: "Db is not responding at this time" })
+            console.log(err)
+        }
+        else {
+            res.send({ success: true, assets: result })
+
+        }
+    })
+
+});
+//////////////////
+router.get('/user/details', VerifyToken, async function (req, res, next) {
+    const userId = req.userId;
+    User.findOne({ _id: userId }, async (err, user) => {
+        if (err) {
+            res.send({ success: false, message: "Incorrect wallet id" })
+        } else {
+            if (user) {
+                var userName=user.username;
+                var email=user.email;
+                var walletId=user.walletId;
+                var address = user.multiAddress;
+                var password=user.password
+         res.send({success:true,result:{
+             user_name:userName,email:email,wallet_id:walletId,Multichain_address:address,password:password
+         }})
+
+            } else {
+                res.send({ success: false, message: "User multichain wallet not found" })
+            }
+        }
+    })
+
+});
+//////////////////
+module.exports = router;
